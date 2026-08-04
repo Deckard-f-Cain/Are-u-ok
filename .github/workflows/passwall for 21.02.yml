@@ -1,0 +1,65 @@
+name: Build PassWall Run Package for GL-MT3000
+
+# 触发条件：支持手动点击按钮触发，或者 Push 代码时自动触发
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取你仓库里的代码 (主要获取 install.sh)
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. 安装打包工具 makeself 和下载工具
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y makeself wget curl
+
+      # 3. 创建打包工作区并下载对应 A53 架构的 IPK 文件
+      - name: Download PassWall & Dependencies (aarch64_cortex-a53)
+        run: |
+          mkdir -p pack_dir
+          
+          # 将你的 install.sh 拷贝进来并赋予执行权限
+          cp install.sh pack_dir/
+          chmod +x pack_dir/install.sh
+          
+          cd pack_dir
+          
+          # ==========================================================
+          # 在这里指定你的 IPK 下载地址（以社区公开 release 为例）
+          # 如果你的仓库内本身就存了 IPK，直接 cp ../*.ipk . 即可
+          # ==========================================================
+          echo "正在收集 IPK 包..."
+          
+          # 提示：实际使用时，可以替换为具体的 ipk 下载链接
+          # wget -q https://github.com/xxxx/releases/download/xxx/luci-app-passwall.ipk
+          
+          ls -la
+
+      # 4. 使用 makeself 生成 .run 打包文件
+      - name: Generate .run File
+        run: |
+          makeself ./pack_dir passwall_GL-MT3000_a53.run "PassWall Installer for GL-MT3000" ./install.sh
+
+      # 5. 同时打包一份 .tar.gz（防止部分OpenWrt缺少makeself解压组件）
+      - name: Generate .tar.gz File
+        run: |
+          tar -czvf passwall_GL-MT3000_a53.tar.gz -C pack_dir .
+
+      # 6. 将打包好的文件作为 Artifact 供你在页面直接点击下载
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PassWall-GL-MT3000-Installer
+          path: |
+            passwall_GL-MT3000_a53.run
+            passwall_GL-MT3000_a53.tar.gz
